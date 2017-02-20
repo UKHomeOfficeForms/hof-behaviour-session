@@ -29,22 +29,44 @@ describe('Sessions Behaviour', () => {
     sessions._configure(req, res, done);
   });
 
-  describe('validators', () => {
-    it('exposes validators', () => {
-      Sessions.validators.should.eql(Controller.validators);
+  describe('getValues', () => {
+    beforeEach(() => {
+      sinon.stub(Controller.prototype, 'getValues').yields();
     });
-  });
 
-  describe('formatters', () => {
-    it('exposes formatters', () => {
-      Sessions.formatters.should.eql(Controller.formatters);
+    afterEach(() => {
+      Controller.prototype.getValues.restore();
     });
-  });
 
-  describe('Error', () => {
-    it('is an instance of Wizard.Error', () => {
-      const err = new sessions.Error('key', { type: 'required' });
-      err.should.be.an.instanceOf(Controller.Error);
+    it('calls super', () => {
+      sessions.getValues(req, res, next);
+      Controller.prototype.getValues.should.have.been.calledOnce;
+    });
+
+    it('calls callback with an error if super throws', () => {
+      const err = new Error('Oops');
+      Controller.prototype.getValues.yields(err);
+      sessions.getValues(req, res, next);
+      next.should.have.been.calledWith(err);
+    });
+
+    it('extends the values returned by super with sessionModel values, and errorValues', () => {
+      req.sessionModel.set({
+        foo: 'bar',
+        bar: 'baz',
+        errorValues: {
+          bar: 'something else'
+        }
+      });
+      Controller.prototype.getValues.yields(null, {
+        a: 'b'
+      });
+      sessions.getValues(req, res, next);
+      next.should.have.been.calledWithExactly(null, {
+        foo: 'bar',
+        bar: 'something else',
+        a: 'b'
+      });
     });
   });
 
